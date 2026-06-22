@@ -1,6 +1,7 @@
 import logging
 import sys
 from aiogram import Bot, types, Dispatcher, executor
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import *
 from keyboard import *
 
@@ -23,6 +24,48 @@ async def set_default_commands(dp):
         types.BotCommand("start", "Запустить бота")
     ])
 
+# Функция проверки подписки
+async def check_subscription(user_id):
+    try:
+        member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
+        if member.status in ['member', 'administrator', 'creator']:
+            return True
+        return False
+    except:
+        return False
+
+# Функция отправки сообщения с требованием подписки
+async def require_subscription(message: types.Message):
+    keyboard = InlineKeyboardMarkup()
+    keyboard.add(InlineKeyboardButton("📢 Подписаться на канал", url=CHANNEL_URL))
+    keyboard.add(InlineKeyboardButton("✅ Проверить подписку", callback_data="check_sub"))
+    
+    await message.answer(
+        "⚠️ <b>Для использования бота необходимо подписаться на наш канал!</b>\n\n"
+        "Нажмите кнопку ниже, чтобы подписаться, а затем проверьте подписку.",
+        reply_markup=keyboard,
+        parse_mode='HTML'
+    )
+
+@dp.callback_query_handler(text='check_sub')
+async def check_sub_callback(callback: types.CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    
+    if await check_subscription(user_id):
+        await callback.message.delete()
+        await cmd_start(callback.message, None)
+    else:
+        await callback.message.answer(
+            "❌ Вы ещё не подписались на канал!\n"
+            "Подпишитесь и нажмите 'Проверить подписку' снова.",
+            reply_markup=InlineKeyboardMarkup().add(
+                InlineKeyboardButton("📢 Подписаться", url=CHANNEL_URL)
+            ).add(
+                InlineKeyboardButton("✅ Проверить подписку", callback_data="check_sub")
+            )
+        )
+
 @dp.message_handler(text='Отмена ❌', state='*')
 async def back(message: types.Message, state: FSMContext):
     await message.answer("Вы отменили отправку сообщения!", reply_markup=types.ReplyKeyboardRemove())
@@ -33,9 +76,15 @@ class Send_Message(StatesGroup):
 
 @dp.message_handler(commands=['start'], state='*')
 async def cmd_start(message: types.Message, state: FSMContext):
+    # Проверяем подписку
+    if not await check_subscription(message.from_user.id):
+        await require_subscription(message)
+        return
+    
     db.db_start()
     if message.from_user.username is None:
         return await message.answer('Установите @username и пропишите /start')
+    
     if not db.user_exists(message.from_user.id):
         start_cmd = message.text
         referi_id = str(start_cmd[7:])
@@ -84,6 +133,12 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=Send_Message.text)
 async def state_message(message: types.Message, state: FSMContext):
+    # Проверяем подписку перед отправкой
+    if not await check_subscription(message.from_user.id):
+        await require_subscription(message)
+        await state.finish()
+        return
+    
     data = await state.get_data()
     user = data['name']
     text = message.text
@@ -103,6 +158,12 @@ async def state_message(message: types.Message, state: FSMContext):
 
 @dp.callback_query_handler(text_startswith='send')
 async def reply_messages(callback: types.CallbackQuery, state: FSMContext):
+    # Проверяем подписку перед ответом
+    if not await check_subscription(callback.from_user.id):
+        await callback.answer("Вы не подписаны на канал!", show_alert=True)
+        await require_subscription(callback.message)
+        return
+    
     await Send_Message.text.set()
     user = callback.data.split('|')[1]
     await state.update_data(name=user)
@@ -116,6 +177,8 @@ async def reply_messages(callback: types.CallbackQuery, state: FSMContext):
 async def on_startup(_):
     await set_default_commands(dp)
     print('Bot started successfully! 🚀')
+    print(f'Bot: @{NICNAME_BOT}')
+    print(f'Channel ID: {CHANNEL_ID}')
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
