@@ -1,4 +1,4 @@
-token = '8762089094:AAGvv2yrQONhEauSJgwcL4l5GrLlK9JrK9c'  # Токен бота
+token = '8762089094:AAGaxAPmNWPg3-4WePkNZCaRw7Yvuq0GQRc'  # Токен бота
 
 NICNAME_BOT = 'anonimmassagingbot'  # username бота без @
 
