@@ -2,6 +2,6 @@ services:
   - type: web
     name: anonim-messaging-bot
     runtime: docker
-    repo: https://github.com/ВАШ_НИК/ВАШ_РЕПОЗИТОРИЙ
+    repo: https://github.com/anames2323/Bewa
     dockerfilePath: ./Dockerfile
     plan: free
