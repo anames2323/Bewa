@@ -1,10 +1,7 @@
 services:
   - type: web
     name: anonim-messaging-bot
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.8
+    runtime: docker
+    repo: https://github.com/ВАШ_НИК/ВАШ_РЕПОЗИТОРИЙ
+    dockerfilePath: ./Dockerfile
     plan: free
